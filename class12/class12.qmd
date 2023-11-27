@@ -1,0 +1,29 @@
+---
+title: "Class12"
+author: "James Woolley A16440072"
+format: pdf
+editor: visual
+---
+
+```{r}
+expr <- read.table("genomicslab.txt")
+head(expr)
+```
+
+```{r}
+nrow(expr)
+table(expr$geno)
+summary(expr)
+```
+>Q13
+
+There are 462 individuals in this data and 121 of them have the G|G genotype, 233 have the A/G genotype, and 108 have the A/A genotype. In order to find the median expression levels for all these samples, we can make a box plot and analyze the data. (See below). From the box plots we've made, we can see that A/A individuals have a median expression level of 31, A/G individuals have a median expression level of 25, and G/G individuals have a median expression level of 20. 
+
+```{r}
+library(ggplot2)
+ggplot(expr) + aes(geno, exp) + 
+  geom_boxplot()
+```
+>Q14
+
+We can see that expression levels of ORMDL3 are noticeably different for the different genotypes, with A/A being the highest, A/G being a medium expression level, and G/G being the lowest expression level. 

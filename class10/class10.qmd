@@ -1,0 +1,168 @@
+---
+title: "class10"
+author: "james woolley A16440072"
+format: pdf
+editor: visual
+---
+
+We should take a look into the PDB databse, which is the second oldest bioinformatics database in the world and the main repository of protein structures.
+
+We should download the PDB data distribution from the website and move it to the folder. 
+
+```{r}
+stats <- read.csv("Data Export Summary.csv", row.names = 1)
+head(stats)
+```
+Currently, these values are stored as cahracters because there are commas separating the thousands place. We can fix this using the `gsub()` function.
+
+```{r}
+x <- stats$X.ray #this will use the gsub function to globally substitute commas with nothing.
+as.numeric(gsub(",","", x))
+```
+```{r}
+rm.comma <- function(x){#we can write a function to remove commas
+  as.numeric( gsub(",","",x))
+}
+```
+
+```{r}
+rm.comma(stats$EM)
+```
+```{r}
+pdbstats <- apply(stats, 2, rm.comma)
+```
+
+>Q1 What percentage of structures in the PDB are solved by X-ray and Electron Microscopy?
+
+We can do some math to find out how many structures are solved by X-ray or EM
+```{r}
+totals <- apply(pdbstats, 2, sum) 
+round(totals/totals["Total"] *100, 2)
+```
+We can see that 84.83% of the structures were determined by X-ray and 8.33% of the structures were determined by EM.
+>Q2 What proportion of structures in the PDB are protein?
+
+```{r}
+round(pdbstats[1,"Total"]/sum(pdbstats), 2)
+```
+A total of 43% of the structures are protein.
+>Q3.
+
+We skipped this one <3
+
+>Q4. Water molecules normally have 3 atoms. Why do we see just one atom per water molecule in this structure?
+
+The hydrogens don't appear because theyre smaller than the resolution the protein was analyzed with (2 amstrongs)
+
+>Q5. There is a critical “conserved” water molecule in the binding site. Can you identify this water molecule? What residue number does this water molecule have?
+
+H308 is the critical water molecule that allows the protein to work. It has been identified in the figure below.
+
+>Q6. Generate and save a figure clearly showing the two distinct chains of HIV-protease along with the ligand. You might also consider showing the catalytic residues ASP 25 in each chain and the critical water (we recommend “Ball & Stick” for these side-chains). Add this figure to your Quarto document.
+
+![](1HSG(1).png)
+
+##The bio3d package for structural bioinformatics
+
+```{r}
+library(bio3d)
+
+pdb <- read.pdb("1hsg")
+pdb
+```
+```{r}
+head(pdb$atom)
+```
+
+#predicting functional motions
+
+We can finish today with bioinformatics calculations to predict functional motions of a PDB structure.
+
+```{r}
+adk <- read.pdb("6s36")
+adk
+```
+
+```{r}
+m <- nma(adk)
+plot(m)
+mktrj(m, file="adk_m7.pdb")
+```
+
+We can use the pdb file we generated and put it into molstar to visualise how it moves. 
+
+##CLASS 11 CONTENT BELOW (finishing up class 10)
+
+Before we finish the lab, we need to install some important packages, including `bio3d`, and `msa`.
+
+The `msa` package is from BioConductor and focuses on genomics. It is managed by `BiocManager`
+
+```{r}
+library(bio3d)
+
+aa <- get.seq("1ake_A")
+aa
+```
+
+Now we can search the PDB database for related sequences:
+```{r}
+b <- blast.pdb(aa)
+```
+
+```{r}
+hits <- plot(b) #the black dots in the graph are the close sequences
+```
+
+```{r}
+attributes(b)
+head(b$hit.tbl) #we can see that all the information displayed here is the same as from the online website
+```
+
+```{r}
+hits$pdb.id #this command shows the best/closest matches
+```
+Also lets annotate the structures to find out what they are and what species they're from and stuff like that. You can think of it as adding the convenient links that can be found on the blast website. 
+We can do this by running the `pdb.annotate()` function.
+
+```{r}
+anno <- pdb.annotate(ids = hits$pdb.id) #this is giving the function the list of closest matches to ID
+```
+```{r}
+attributes (anno) #this shows all the information we got usign `pdb.annotate`
+head(anno)
+```
+
+Below we're collecting all the similar sequences and downloading them using the `get.pdb` function.
+```{r}
+hits <- NULL
+hits$pdb.id <- c('1AKE_A','6S36_A','6RZE_A','3HPR_A','1E4V_A','5EJE_A','1E4Y_A','3X2S_A','6HAP_A','6HAM_A','4K46_A','3GMT_A','4PZL_A')
+```
+```{r}
+files <- get.pdb(hits$pdb.id, path="pdbs", split=TRUE, gzip=TRUE) #lets go through and download all the related pdb files
+```
+
+Now that we have all the files, we can use the `pdbaln()` function to align and fit the structures, then plot it out to visually see the alignment.
+
+```{r}
+pdbs <- pdbaln(files, fit = TRUE, exefile="msa")
+```
+
+```{r}
+# this creates a vector with all the pdb names
+ids <- basename.pdb(pdbs$id)
+
+# this will plot the sequence alignment, where the grey areas indicate a match and the white areas indicate a gap.
+plot(pdbs, labels=ids)
+```
+
+Now we can perform PCA to look at the areas that have the highest variance. This will show us where the proteins are the most different from each other. This is much easier than using a visualiser and slowly comparing all the proteins by hand. 
+
+```{r}
+pc.xray <- pca(pdbs)
+plot(pc.xray)
+```
+We can make a pdb file that lets us visualise the major structure variations with mol*. Loading it into a visualiser shows all of the different active and inactive structures. 
+```{r}
+pc1 <- mktrj(pc.xray, pc=1, file="pc_1.pdb")
+```
+

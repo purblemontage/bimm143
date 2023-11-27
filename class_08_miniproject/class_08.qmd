@@ -1,0 +1,190 @@
+---
+title: "class_08_project"
+author: "James Woolley (A16440072)"
+format: pdf
+editor: visual
+---
+
+Let's begin by getting the data for this project using the `read.csv()` function and set the correct first row using `row.names = x`.
+
+```{r}
+wisc.df <- read.csv("WisconsinCancer.csv", row.names = 1)
+head(wisc.df)
+```
+
+Notice that this data includes the answers to the question we're trying to find, so we need to create a df that doesn't include the first column
+
+```{r}
+wisc.data <- wisc.df[,-1]
+head(wisc.data)
+```
+
+We still want to be able to know if we get the answer correct, so we can save the diagnosis information as a vector that can be called later, and call it diagnosis. 
+
+```{r}
+diagnosis <- as.factor(wisc.df$diagnosis)
+diagnosis
+```
+
+>Q1. How many observations are in this dataset?
+
+```{r}
+#We can use the `nrow` function to call how many rows there are in the set. 
+nrow(wisc.data)
+```
+Using `nrow`, we can show that there are 569 people's data stored in the set.
+
+>Q2. How many of the observations have a malignant diagnosis?
+
+```{r}
+table(wisc.df$diagnosis)
+```
+Using the `table()` function, we can see that there are 357 benign tumours and 212 malignant tumours.
+
+>Q3. How many variables/features in the data are suffixed with _mean?
+
+```{r}
+mean_columns <- grep("_mean$", names(wisc.df), value = TRUE)
+num_mean_columns <- length(mean_columns)
+print(num_mean_columns)
+```
+Using the `grep` function, we are able to specify the pattern we're looking for, which in this case is "_mean",  and the df we're looking for the pattern in. Then we can use the length function to see that there are 10 columns that end with the word "_mean"
+
+Next we're going to perform a PCA, but before we do we should find out whether or not we need to scale the data by checking the means and standard deviations.
+```{r}
+colMeans(wisc.data)
+
+apply(wisc.data,2,sd)
+```
+
+Now we can execute a PCA by: 
+```{r}
+wisc.pr <- prcomp(wisc.data, scale. = TRUE) #we want to scale the data because every column is measuring something different. This makes sure that the data is accurately represented. 
+summary(wisc.pr)
+```
+We can take a look at the results with
+```{r}
+plot(wisc.pr$x[,1], wisc.pr$x[,2], col=diagnosis, pch=16)
+```
+
+
+>Q4. From your results, what proportion of the original variance is captured by the first principal components (PC1)?
+
+Using the table, we can see that 44.27% of the variance is captured by the first principal component.
+
+>Q5. How many principal components (PCs) are required to describe at least 70% of the original variance in the data?
+
+From the table, we can see that PC1-PC3 describes 70% of the original variance.
+
+>Q6. How many principal components (PCs) are required to describe at least 90% of the original variance in the data?
+
+From the able, we can see that PC1-PC7 descibes 90% of the original variance.
+
+We can also create a biplot to visualise the PC data. 
+
+```{r}
+biplot(wisc.pr)
+```
+>Q7. What stands out to you about this plot? Is it easy or difficult to understand? Why?
+
+It's immediately obvious that this plot as it is is almost impossible to interpret. Generating a scatterplot makes it much easier to see. 
+```{r}
+plot(wisc.pr$x[,1], wisc.pr$x[,2], col=diagnosis, pch=16)
+```
+>Q8.Generate a similar plot for principal components 1 and 3. What do you notice about these plots?
+
+We can generate a plot for components 1 and 3 by:
+```{r}
+plot(wisc.pr$x[, 1 ], wisc.pr$x[,3], col = diagnosis, pch=16,
+     xlab = "PC1", ylab = "PC3")
+```
+
+We can see that the first plot has a cleaner "line" (it's imaginary) between the two groups.
+
+#Variance
+
+```{r}
+pr.var <- wisc.pr$sdev^2
+head(pr.var)
+```
+We can calculate variance explained by each principal component with some math, and then plot it out.
+```{r}
+pve <- pr.var / sum(pr.var)
+plot(pve, xlab = "Principal Component", 
+     ylab = "Proportion of Variance Explained", 
+     ylim = c(0, 1), type = "o")
+```
+>Q9. For the first principal component, what is the component of the loading vector (i.e. wisc.pr$rotation[,1]) for the feature concave.points_mean?
+
+```{r}
+wisc.pr$rotation
+```
+
+```{r}
+wisc.pr$rotation[,1]["concave.points_mean"]
+```
+ -0.2608538 
+ 
+>Q10. What is the minimum number of principal components required to explain 80% of the variance of the data?
+
+PC1-PC5
+
+#Hierarchical Clustering
+```{r}
+data.scaled <- scale(wisc.data) #scaling data
+data.dist <- dist(data.scaled)
+wisc.hclust <- hclust(data.dist)
+plot(wisc.hclust)
+```
+
+>Q11. Using the plot() and abline() functions, what is the height at which the clustering model has 4 clusters?
+
+```{r}
+plot(wisc.hclust) +
+abline(h=19, col="red", lty=2)
+```
+The clustering model has 4 clusters at h=19
+
+>Q12.Can you find a better cluster vs diagnoses match by cutting into a different number of clusters between 2 and 10?
+
+```{r}
+wisc.hclust.clusters <- cutree(wisc.hclust, k=2)
+table(wisc.hclust.clusters, diagnosis)
+```
+The best clustering can be found at lower cut numbers because the benign and malignant clusters are split more clearly.
+
+>Q13. Which method gives your favorite results for the same data.dist dataset? Explain your reasoning.
+
+ward.D2 gives my favorite result because it minimizes the variance between clusters, which makes the graph look nice.
+
+#Combining Methods
+
+Instead of using our original data, we can use PCA data, shown below. We're using 
+```{r}
+d <- dist(wisc.pr$x[,1:3])
+wisc.pr.hclust <- hclust(d, method="ward.D2")
+plot(wisc.pr.hclust)
+```
+Generate 2 cluster groups from the hclust object by cutting the tree.
+```{r}
+grps <- cutree(wisc.pr.hclust, k=2)
+grps
+```
+```{r}
+plot(wisc.pr$x[,1], wisc.pr$x[,2], col=grps)
+```
+
+```{r}
+table(grps)
+```
+
+```{r}
+table(diagnosis)
+```
+
+```{r}
+table(diagnosis, grps)
+```
+> Q15. How well does the newly created model with four clusters separate out the two diagnoses?
+
+Fairly well, definitely better than models with more clusters. We can see in the table that there is a pretty clear split between groups which roughly corresponds with the actual diagnoses given by experts. 

@@ -1,0 +1,22 @@
+---
+title: "class06hw"
+format: pdf
+author: "James Woolley (A16440072)"
+editor: visual
+---
+
+```{r}
+library(bio3d) #accessing the library
+
+graph_the_protein <- function(str) {
+  seq <- read.pdb(str) 
+  seq.chainA <- trim.pdb(seq, chain="A", elety="CA") #chain input "a" you could look 
+  #at other chains by arguing with the function i think? 
+  seq.b <- seq.chainA$atom$b
+  plotb3(seq.b, sse=seq.chainA, typ="l", ylab="Bfactor")
+}
+#this function looks at protein crystallography and ouputs a graph of the bfactor
+graph_the_protein("4AKE")
+graph_the_protein("1AKE")
+graph_the_protein("1E4Y")
+```

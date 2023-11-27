@@ -1,0 +1,202 @@
+---
+title: "Class 07: ML 1"
+author: "James Woolley (A16440072)"
+format: pdf
+editor: visual
+---
+
+#clustering
+
+Today we will start by exploring clustering methods such as K-means using the `kmeans()` function.
+
+We can begin with made up data so we know what the answer should be.
+
+```{r}
+x <- rnorm(10000, mean=3)
+hist(x)
+```
+
+60 points
+```{r}
+tmp <- c(rnorm(30,mean=3), rnorm(30,-3))
+x <- cbind(x=tmp, y=rev(tmp))
+head(x)
+```
+
+We can take a look with base R plot 
+
+```{r}
+plot(x)
+```
+
+```{r}
+k <- kmeans(x,centers=2,nstart=20)
+k
+```
+
+> Q1. How many points are in each cluster?
+
+```{r}
+k$size
+```
+
+> Q2. Cluster membership
+
+```{r}
+k$cluster
+```
+
+> Q3. Cluster centers?
+
+```{r}
+k$centers
+```
+
+> Q4. Plot the restults
+
+```{r}
+plot(x, col=k$cluster, pch=15)
+```
+
+> Q5. CLuster the data again with kmeans() into 4 groups and plot the results.
+
+```{r}
+k4 <- kmeans(x,centers=4,nstart=20)
+plot(x, col=k4$cluster, pch=17)
+```
+`kmeans ` will always spit out what you tell it, even if it makes no sense (above). So if you don't know how many groups you SHOULD have, how do you determine how many centers data has? 
+
+kmeans is very popular because of how fast it is, but it 
+
+# Hierarchical Clustering
+
+The way to use hclustering in base R is through the `hclust()` function. You have to pass it in a distance matrix. It won't work with ur input data.
+
+```{r}
+hc <- hclust(dist(x))
+plot(hc)
+```
+
+```{r}
+plot(hc)
+abline(h=8, col="purple")
+grps <- cutree(hc,h=8)
+```
+
+To find the clusters from a `hcluster` 
+
+```{r}
+table(grps)
+```
+
+>Q6. Plot the hclust results
+
+```{r}
+plot (x, col=grps, pch=15)
+```
+
+# PCA of food consumed in the UK
+
+Consumption of 17 different types of food measured and averaged in England, Scotland, Wales, and N Ireland. 
+
+We can use PCA to help us analyse the data, but we can begin with conventional analysis. 
+
+```{r}
+url <- "https://tinyurl.com/UK-foods"
+x <- read.csv(url)
+rownames(x) <- x[,1] #set correct row and col names
+x <- x[,-1]
+head(x)
+```
+
+>Q1. How many rows and columns are in your new data frame named x? What R functions could you use to answer this questions?
+
+You can use the `nrow()` and `ncol()` functions to answer this question.
+
+```{r}
+nrow(x)
+ncol(x)
+```
+
+>Q2. Which approach to solving the ‘row-names problem’ mentioned above do you prefer and why? Is one approach more robust than another under certain circumstances?
+
+Using `x <- read.csv(url, row.names=1) head(x)`is better than the other method, because it will fix the row-names column without removing columns. If you keep removing columns, you will lose data. This method sets the correct column instead of subtracting to arrive at the correct column. 
+
+```{r}
+x <- read.csv(url, row.names=1)
+head(x)
+```
+
+We can visualize the data in a bar plot! 
+```{r}
+barplot(as.matrix(x), beside=T, col=rainbow(nrow(x)))
+```
+But that's not very helpful, so we want to try to put the data together in a way that makes it easier to understand.
+
+>Q3.Changing what optional argument in the above barplot() function results in the following plot?
+
+```{r}
+barplot(as.matrix(x), beside=F, col=rainbow(nrow(x)))
+```
+This stacks the data by country instead of producing many tiny little bars. 
+
+>Q5: Generating all pairwise plots may help somewhat. Can you make sense of the following code and resulting figure? What does it mean if a given point lies on the diagonal for a given plot?
+
+```{r}
+pairs (x, col=rainbow(17), pch=16)
+```
+The closer a point is to the diagonal, the more similar the consumption for that point is between the two different countries. 
+
+
+
+>Q6. What is the main differences between N. Ireland and the other countries of the UK in terms of this data-set?
+
+Northern Ireland consmes more of the blue point and less of the green point than the other countries, and you know because it 
+
+## Principal component analysis (PCA)
+
+PCA helps visualise data like this even better. THe main function in base R to use PCA is `prcomp()`. IN this case we want to first take the transpose of the original data `x` so the columns and rows are switched. 
+
+```{r}
+head(t(x))
+```
+
+```{r}
+pca <- prcomp (t(x))
+summary(pca)
+```
+
+> Q7. Complete the code below to generate a plot of PC1 vs PC2. The second line adds text labels over the data points.
+
+```{r}
+pca$x
+```
+```{r}
+plot(pca$x[,1], pca$x[,2], xlab="PC1", ylab="PC2", xlim=c(-270,500))
+text(pca$x[,1], pca$x[,2], colnames(x))
+```
+
+
+>Q8. Customize your plot so that the colors of the country names match the colors in our UK and Ireland map and table at start of this document.
+
+```{r}
+plot(pca$x[,1], pca$x[,2], col=c("orange", "pink", "lightblue", "lightgreen"), pch=16)
+text(pca$x[,1], pca$x[,2], colnames(x),col=c("orange", "pink", "lightblue", "lightgreen"))
+```
+
+> Q9: Generate a similar ‘loadings plot’ for PC2. What two food groups feature prominantely and what does PC2 maninly tell us about?
+
+This will help create a PC1 plot. 
+```{r}
+par(mar=c(10, 3, 0.35, 0))
+barplot( pca$rotation[,1], las=2 )
+```
+
+TO make a PC2 plot, use
+
+```{r}
+par(mar=c(10, 3, 0.35, 0))
+barplot( pca$rotation[,2], las=2 )
+```
+
+this shows that the biggest difference is Fresh Potatoes and Soft Drinks. This shows us variance that PC 1 didn't account for. 

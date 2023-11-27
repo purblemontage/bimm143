@@ -1,0 +1,234 @@
+---
+title: "class11"
+author: "james woolley A16440072"
+format: pdf
+editor: visual
+---
+
+##CLASS 10 CONTENT BELOW (finishing up class 10)
+
+Before we finish the lab, we need to install some important packages, including `bio3d`, and `msa`.
+
+The `msa` package is from BioConductor and focuses on genomics. It is managed by `BiocManager`
+
+```{r}
+library(bio3d)
+
+aa <- get.seq("1ake_A")
+aa
+```
+
+Now we can search the PDB database for related sequences:
+
+```{r}
+#b <- blast.pdb(aa)
+```
+
+```{r}
+#hits <- plot(b) #the black dots in the graph are the close sequences
+```
+
+```{r}
+#attributes(b)
+#head(b$hit.tbl) #we can see that all the information displayed here is the same as from the online website
+```
+
+```{r}
+#hits$pdb.id #this command shows the best/closest matches
+```
+
+Below we're collecting all the similar sequences and downloading them using the `get.pdb` function.
+
+```{r}
+hits <- NULL
+hits$pdb.id <- c('1AKE_A','6S36_A','6RZE_A','3HPR_A','1E4V_A','5EJE_A','1E4Y_A','3X2S_A','6HAP_A','6HAM_A','4K46_A','3GMT_A','4PZL_A')
+```
+
+```{r}
+files <- get.pdb(hits$pdb.id, path="pdbs", split=TRUE, gzip=TRUE) #lets go through and download all the related pdb files
+```
+
+Also lets annotate the structures to find out what they are and what species they're from and stuff like that. You can think of it as adding the convenient links that can be found on the blast website. We can do this by running the `pdb.annotate()` function.
+
+```{r}
+anno <- pdb.annotate(ids = hits$pdb.id) #this is giving the function the list of closest matches to ID
+```
+
+```{r}
+attributes (anno) #this shows all the information we got usign `pdb.annotate`
+head(anno)
+```
+
+Now that we have all the files, we can use the `pdbaln()` function to align and fit the structures, then plot it out to visually see the alignment.
+
+```{r}
+pdbs <- pdbaln(files, fit = TRUE, exefile="msa")
+```
+
+The following code was commented out becuase it broke the PDF when trying to render. Cannot figure out why. 
+```{r}
+# this creates a vector with all the pdb names
+#ids <- basename.pdb(pdbs$id)
+
+# this will plot the sequence alignment, where the grey areas indicate a match and the white areas indicate a gap.
+#plot(pdbs, labels=ids)
+```
+
+Now we can perform PCA to look at the areas that have the highest variance. This will show us where the proteins are the most different from each other. This is much easier than using a visualiser and slowly comparing all the proteins by hand.
+
+```{r}
+pc.xray <- pca(pdbs)
+plot(pc.xray)
+```
+
+We can make a pdb file that lets us visualise the major structure variations with mol\*. Loading it into a visualiser shows all of the different active and inactive structures.
+
+```{r}
+pc1 <- mktrj(pc.xray, pc=1, file="pc_1.pdb")
+```
+
+##CLASS 11 STUFF
+
+![](HIVPR_MONOMER_94B5B_0_UNRELAXED_RANK_001_ALPHAFOLD2_PTM_MODEL_5_SEED_000.PDB-HIVPR_MONOMER_94B5B_0_UNRELAXED_RANK_002_ALPHAFOLD2_PTM_MODEL_4_SEED_000.PDB-HIVPR_MONOMER_94B5B_0_UNRELAXED_RANK_004_ALPHAFOLD2_PTM_MODEL_)
+This image shows the monomers all "stacked up" against eachother so we can visualise how different they are.
+
+We're going to try visualising information from AlphaFold2 with `bio3d` First lets make sure our files are all available for us to read.
+
+```{r}
+results_dir <- "HIVpr_homodimer_23119_0"
+pdb_files <- list.files(path=results_dir,
+                        pattern="*.pdb",
+                        full.names = TRUE)
+pdb_files
+```
+
+Now we can extract the sequences, making sure we have muscle downloaded first.
+
+```{r}
+library(bio3d)
+pdbs <- pdbaln(pdb_files, fit=TRUE)
+```
+
+Now we can calculate the RMSD between all the models and generate a heat map
+
+```{r}
+rd <- rmsd(pdbs)
+range(rd)
+
+#remember to `install.packages("pheatmap")` first
+library(pheatmap)
+
+colnames(rd) <- paste0("m",1:5)
+rownames(rd) <- paste0("m",1:5)
+pheatmap(rd)
+```
+
+This shows a beautiful heat map of all the RMSD matrix values
+
+Next we can plot all the plDDT values
+
+```{r}
+pdb <- read.pdb("1hsg")
+plotb3(pdbs$b, typ="l", lwd=2, sse=pdb)
+points(pdbs$b[2,], typ="l", col="red")
+points(pdbs$b[3,], typ="l", col="blue")
+points(pdbs$b[4,], typ="l", col="darkgreen")
+points(pdbs$b[5,], typ="l", col="orange")
+abline(v=100, col="gray")
+```
+
+This graph shows how "good" our predicted structures are/how confident AlphaFold2 is that the predicted structures are correct. The fitting of the model can be additionally improved with the following commands
+
+```{r}
+core <- core.find(pdbs)
+core.inds <- print(core, vol=0.5)
+xyz <- pdbfit(pdbs, core.inds, outpath="corefit_structures")
+```
+
+This should spit out a file that can be read by mol*, and we can then colour it by uncertainty/disorder to see how "good" the predicted structure is.
+
+![](HIVPR_HOMODIMER_23119_0_UNRELAXED_RANK_005_ALPHAFOLD2_MULTIMER_V3_MODEL_3_SEED_000.PDB_FLSQ.PDB-HIVPR_HOMODIMER_23119_0_UNRELAXED_RANK_004_ALPHAFOLD2_MULTIMER_V3_MODEL_2_SEED_000.PDB_FLSQ.PDB-HIVPR_HOMODIMER_23119_0_)
+
+This shows the superposed structures coloured by uncertainty.
+
+Now we can update the RMSD and examine the RMSF of the positions of the structure
+```{r}
+rd <- rmsd(xyz)
+colnames(rd) <- paste0("m",1:5)
+rownames(rd) <- paste0("m",1:5)
+pheatmap(rd)
+```
+```{r}
+rf <- rmsf(xyz)
+
+plotb3(rf, sse=pdb)
+abline(v=100, col="gray", ylab="RMSF")
+```
+
+#predicted alignment errors for domains
+
+```{r}
+library(jsonlite)
+
+pae_files <- list.files(path=results_dir,
+                        pattern=".*model.*\\.json",
+                        full.names = TRUE)
+pae1 <- read_json(pae_files[1],simplifyVector = TRUE)
+pae5 <- read_json(pae_files[5],simplifyVector = TRUE)
+
+attributes(pae1)
+```
+```{r}
+head(pae1$plddt) 
+```
+This shows the maximum PAE values, and we can see in the vector that model 1 is the best, because it has the lowest score.
+
+```{r}
+pae1$max_pae
+pae5$max_pae
+```
+We can plot these together like so
+```{r}
+plot.dmat(pae1$pae, 
+          xlab="Residue Position (i)",
+          ylab="Residue Position (j)",
+          grid.col = "black",
+          zlim=c(0,30))
+```
+```{r}
+plot.dmat(pae5$pae, 
+          xlab="Residue Position (i)",
+          ylab="Residue Position (j)",
+          grid.col = "black",
+          zlim=c(0,30))
+```
+
+#Residue conservation from alignment file
+
+```{r}
+aln_file <- list.files(path=results_dir,
+                       pattern=".a3m$",
+                        full.names = TRUE)
+aln <- read.fasta(aln_file[1], to.upper = TRUE)
+dim(aln$ali)
+```
+Now we can see how conserved the residues are 
+```{r}
+sim <- conserv(aln)
+plotb3(sim[1:99], sse=trim.pdb(pdb, chain="A"))
+```
+This graph shows that there are highly conserved active sites at D25, T26, G27, A28.
+
+```{r}
+con <- consensus(aln, cutoff = 0.9)
+con$seq
+```
+Finally, we can map the conservation score to visualise the highly conserved areas using programs like mol*
+
+```{r}
+m1.pdb <- read.pdb(pdb_files[1])
+occ <- vec2resno(c(sim[1:99], sim[1:99]), m1.pdb$atom$resno)
+write.pdb(m1.pdb, o=occ, file="m1_conserv.pdb")
+```
+
+![](M1_CONSERV.PDB.png)
